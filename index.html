@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>눈 내리는 겨울 마을 - 전자칠판 터치 게임</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Start / Character Selection Screen -->
+    <div id="start-overlay" class="start-overlay">
+      <div class="start-title-badge">❄️ 눈 내리는 겨울 마을</div>
+      <div class="start-card">
+        <div class="char-grid" id="char-grid">
+          <button type="button" class="char-option selected" data-char="rabbit">
+            <span class="char-emoji">🐰</span>
+            <span class="char-name">토끼</span>
+          </button>
+          <button type="button" class="char-option" data-char="bear">
+            <span class="char-emoji">🐻</span>
+            <span class="char-name">곰</span>
+          </button>
+          <button type="button" class="char-option" data-char="penguin">
+            <span class="char-emoji">🐧</span>
+            <span class="char-name">펭귄</span>
+          </button>
+          <button type="button" class="char-option" data-char="cat">
+            <span class="char-emoji">🐱</span>
+            <span class="char-name">고양이</span>
+          </button>
+        </div>
+
+        <div class="nickname-row">
+          <input
+            id="nickname-input"
+            type="text"
+            maxlength="8"
+            placeholder="닉네임"
+            value="버니"
+            autocomplete="off"
+          />
+        </div>
+        <div class="quick-names" id="quick-names" aria-label="추천 닉네임">
+          <button type="button" class="quick-name-chip">버니</button>
+          <button type="button" class="quick-name-chip">코코</button>
+          <button type="button" class="quick-name-chip">핑구</button>
+          <button type="button" class="quick-name-chip">나비</button>
+          <button type="button" class="quick-name-chip">눈송이</button>
+        </div>
+
+        <button type="button" id="enter-village-btn" class="primary-btn large-btn">
+          마을로 들어가기
+        </button>
+        <button type="button" id="start-share-btn" class="secondary-link-btn">
+          📲 친구 초대하기 (QR 코드 · 접속 링크)
+        </button>
+      </div>
+    </div>
+
+    <!-- In-Game HUD -->
+    <div id="hud" class="hud hidden">
+      <!-- Top Left: Player & Village Status -->
+      <div class="hud-top-left">
+        <div class="pill-badge" id="player-badge">
+          <span id="player-badge-emoji">🐰</span>
+          <span id="player-badge-name">버니</span>
+        </div>
+        <div class="pill-badge" id="player-count-badge">
+          <span>👥</span>
+          <span id="player-count-label">1명</span>
+        </div>
+        <div class="pill-badge">
+          <span>⛄</span>
+          <span id="snowman-count-label">눈사람 0</span>
+        </div>
+        <div class="pill-badge">
+          <span>🐟</span>
+          <span id="fish-count-label">물고기 0</span>
+        </div>
+      </div>
+
+      <!-- Top Right: Controls (Share QR, Chat, Sound, Joystick Toggle, Fullscreen) -->
+      <div class="hud-top-right">
+        <button type="button" id="share-qr-btn" class="icon-btn" title="친구 초대 QR / 링크">
+          📲
+        </button>
+        <button type="button" id="chat-toggle-btn" class="icon-btn" title="채팅 열기/닫기">
+          💬
+        </button>
+        <button type="button" id="joystick-toggle-btn" class="icon-btn active" title="터치 조이스틱 켜기/끄기">
+          🕹️
+        </button>
+        <button type="button" id="sound-toggle-btn" class="icon-btn" title="소리 켜기/끄기">
+          🔊
+        </button>
+        <button type="button" id="fullscreen-btn" class="icon-btn" title="전체 화면">
+          ⛶
+        </button>
+      </div>
+
+      <!-- Multiplayer Chat Panel -->
+      <div id="chat-panel" class="chat-panel hidden">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-quick-row" id="chat-quick-row">
+          <button type="button" class="chat-quick-chip">안녕! 👋</button>
+          <button type="button" class="chat-quick-chip">눈사람 만들자! ⛄</button>
+          <button type="button" class="chat-quick-chip">썰매 타자! 🛷</button>
+          <button type="button" class="chat-quick-chip">따뜻하다~ 🔥</button>
+        </div>
+        <form id="chat-form" class="chat-input-row">
+          <input id="chat-input" type="text" maxlength="60" placeholder="친구들에게 말 걸기..." autocomplete="off" />
+          <button type="submit" class="chat-send-btn">전송</button>
+        </form>
+      </div>
+
+      <!-- Camera Touch Controls (Bottom Right) -->
+      <div class="camera-controls" id="camera-controls">
+        <button type="button" id="cam-zoom-in" class="cam-btn" title="확대">+</button>
+        <button type="button" id="cam-zoom-out" class="cam-btn" title="축소">−</button>
+        <button type="button" id="cam-reset" class="cam-btn" title="시점 초기화">↻</button>
+      </div>
+
+      <!-- Virtual Touch Joystick (Bottom Left) -->
+      <div id="joystick-zone" class="joystick-zone">
+        <div class="joystick-base" id="joystick-base">
+          <div class="joystick-knob" id="joystick-knob"></div>
+        </div>
+        <span class="joystick-hint">드래그 이동</span>
+      </div>
+
+      <!-- Floating Toast / Speech Message -->
+      <div id="toast-banner" class="toast-banner hidden"></div>
+
+      <!-- Sledding Touch Steer Zones -->
+      <div id="sled-steer-ui" class="sled-steer-ui hidden">
+        <button type="button" id="sled-left-btn" class="sled-steer-btn">◀ 왼쪽</button>
+        <button type="button" id="sled-right-btn" class="sled-steer-btn">오른쪽 ▶</button>
+      </div>
+
+      <!-- Bottom Center Contextual Actions -->
+      <div class="hud-bottom-center" id="hud-bottom-center">
+        <!-- Explore default action -->
+        <div id="action-explore" class="action-group">
+          <button type="button" id="make-snowman-btn" class="pill-action-btn">
+            <span>⛄</span>
+            <span>눈사람 만들기</span>
+          </button>
+          <button type="button" id="contextual-btn" class="primary-pill-btn hidden">
+            <span id="contextual-icon">🔥</span>
+            <span id="contextual-label">불 쬐기</span>
+          </button>
+        </div>
+
+        <!-- Sitting / Campfire actions -->
+        <div id="action-sitting" class="action-group hidden">
+          <button type="button" id="stand-up-btn" class="pill-action-btn">
+            일어나기
+          </button>
+          <button type="button" id="roast-btn" class="primary-pill-btn">
+            <span>🍡</span>
+            <span>마시멜로</span>
+          </button>
+          <button type="button" id="eat-btn" class="primary-pill-btn hidden">
+            <span>😋</span>
+            <span>먹기</span>
+          </button>
+        </div>
+
+        <!-- Rolling Snowball UI -->
+        <div id="action-rolling" class="rolling-panel hidden">
+          <div class="rolling-tip" id="rolling-tip">바닥을 터치해 이리저리 굴려요</div>
+          <div class="progress-track">
+            <div class="progress-fill" id="rolling-progress"></div>
+          </div>
+          <div class="rolling-buttons">
+            <button type="button" id="cancel-rolling-btn" class="circle-cancel-btn" title="취소">✕</button>
+            <button type="button" id="place-snowball-btn" class="primary-pill-btn" disabled>
+              여기에 두기
+            </button>
+          </div>
+        </div>
+
+        <!-- Snowman Decoration Palette -->
+        <div id="action-decorate" class="decorate-panel hidden">
+          <div class="decorate-tabs">
+            <button type="button" class="deco-tab active" data-part="scarf" title="목도리">🧣 목도리</button>
+            <button type="button" class="deco-tab" data-part="buttons" title="단추">⚫ 단추</button>
+            <button type="button" class="deco-tab" data-part="hat" title="모자">🎩 모자</button>
+          </div>
+          <div class="hat-styles hidden" id="hat-styles">
+            <button type="button" class="hat-style-btn active" data-hat-style="beanie">🧶 비니</button>
+            <button type="button" class="hat-style-btn" data-hat-style="tophat">🎩 신사모</button>
+            <button type="button" class="hat-style-btn" data-hat-style="santa">🎅 산타</button>
+            <button type="button" class="hat-style-btn" data-hat-style="beret">🎨 베레모</button>
+          </div>
+          <div class="color-swatches" id="color-swatches">
+            <button type="button" class="swatch selected" data-color="#f26b5b" style="background:#f26b5b"></button>
+            <button type="button" class="swatch" data-color="#f5b041" style="background:#f5b041"></button>
+            <button type="button" class="swatch" data-color="#48c9b0" style="background:#48c9b0"></button>
+            <button type="button" class="swatch" data-color="#5d8bf4" style="background:#5d8bf4"></button>
+            <button type="button" class="swatch" data-color="#f48fb1" style="background:#f48fb1"></button>
+          </div>
+          <button type="button" id="finish-deco-btn" class="teal-pill-btn">완료</button>
+        </div>
+
+        <!-- Near Completed Snowman Actions -->
+        <div id="action-snowman-near" class="action-group hidden">
+          <button type="button" id="redecorate-btn" class="pill-action-btn">
+            <span>🎨</span>
+            <span>꾸미기</span>
+          </button>
+          <button type="button" id="photo-btn" class="primary-pill-btn">
+            <span>📸</span>
+            <span>찰칵!</span>
+          </button>
+        </div>
+
+        <!-- Ice Fishing Actions -->
+        <div id="action-fishing" class="action-group hidden">
+          <button type="button" id="stop-fishing-btn" class="pill-action-btn">
+            그만하기
+          </button>
+          <button type="button" id="pull-fish-btn" class="primary-pill-btn" disabled>
+            <span>🎣</span>
+            <span id="pull-fish-label">기다리는 중...</span>
+          </button>
+        </div>
+
+        <!-- Indoor Cabin Actions -->
+        <div id="action-indoor" class="action-group hidden">
+          <button type="button" id="exit-cabin-btn" class="pill-action-btn">
+            <span>🚪</span>
+            <span>밖으로 나가기</span>
+          </button>
+          <button type="button" id="sofa-sit-btn" class="pill-action-btn">
+            <span>🛋️</span>
+            <span>소파에 앉기</span>
+          </button>
+          <button type="button" id="bed-lie-btn" class="pill-action-btn">
+            <span>🛏️</span>
+            <span>침대에 눕기</span>
+          </button>
+          <button type="button" id="cocoa-btn" class="primary-pill-btn">
+            <span>☕</span>
+            <span>핫초코 마시기</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Photo Flash & Preview Modal -->
+    <div id="photo-flash" class="photo-flash hidden"></div>
+    <div id="photo-modal" class="photo-modal hidden">
+      <div class="photo-modal-card">
+        <img id="photo-preview-img" alt="기념 사진" />
+        <div class="photo-modal-actions">
+          <button type="button" id="photo-download-btn" class="primary-pill-btn">💾 사진 저장하기</button>
+          <button type="button" id="photo-close-btn" class="pill-action-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share QR & Link Modal -->
+    <div id="share-modal" class="photo-modal hidden">
+      <div class="photo-modal-card share-modal-card">
+        <h3 class="share-title">📲 친구들과 함께 놀기</h3>
+        <p class="share-desc">같은 Wi-Fi에서 아래 QR 코드를 스캔하거나 주소로 접속하세요</p>
+        <canvas id="share-qr-canvas" class="share-qr-canvas"></canvas>
+        <div id="share-url-text" class="share-url-text">주소 불러오는 중...</div>
+        <div class="photo-modal-actions">
+          <button type="button" id="share-copy-btn" class="primary-pill-btn">📋 주소 복사</button>
+          <button type="button" id="share-close-btn" class="pill-action-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating 3D Labels Layer -->
+    <div id="labels-layer" class="labels-layer"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
